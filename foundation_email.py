@@ -1,7 +1,8 @@
-import string, csv, unicodedata
+#modules that need to be imported.
+import string, csv, smtplib
 
 #create variable data_reader and open csv file specifying excel (standard)
-data_reader = csv.reader (open('fndver.csv', 'rU'), dialect="excel")
+data_reader = csv.reader (open('fndver2.csv', 'rU'), dialect="excel")
 
 # creates a new empty list variable
 data = []
@@ -26,7 +27,7 @@ for header in headers:
 
 # this function takes a string, converts it into a number,
 # then converts the number into currency (string)
-# number before 'f' indicates decimal places
+# number before 'f' indicates decimal places, so in this case 0
 def commas(string):
     if string is '':
         return '(information missing)'
@@ -42,29 +43,56 @@ def numbers(string):
 
     number = int(string)
     return number
-    
+#this is a testing mechanism and prints specified individual email outputs w/o sending emails.
 #this function performs a join on all strings in loop.
-#whole_message = join of strings
-#output = writes output to a text file in the files directory
-def print_it(list_of_strings):
-    whole_message = ''.join(list_of_strings)
-    output = open('files/text.txt', 'w')
-    output.write(whole_message.encode('utf8'))
-    output.close()
+# whole_message = join of strings
+# output = writes output to a text file in the files directory
+# this function is for testing the output of an individual message in a txt format.
+# def print_it(list_of_strings):
+#    whole_message = ''.join(list_of_strings)
+#    output = open('files/text.txt', 'w')
+#    output.write(whole_message.encode('utf8'))
+#    output.close()
 
-# all emails creates a list that we can then specify which whole_message to print
+#this is the log-in function; the server and hostname specifications are defined at end of script in send_mail
+def log_in_to_mail_server(hostname, port, username, password, ssl=True):
+    server = smtplib.SMTP(hostname, port)
+    if ssl:
+       server.starttls()
+    server.login(username, password)
+
+    return server
+
+#this function passes arguments that structure the format of the email
+def send_mail(server, from_address, to_address, subject, body):
+    return server.sendmail(
+        from_address,
+        to_address,
+        ('From: {from_address}\r\nTo: {to_address}\r\nSubject: {subject}\r\n\r\n'
+            '{body}\r\n').format(
+                from_address=from_address, to_address=to_address,
+                subject=subject, body=body))
+
+#all_emails creates a list of the text [], which contains the structure/format of one email. 
+#all_emails therefore is a list that contains all the emails.
 all_emails = []
+#all_email_address is a list
+all_email_addresses = []
 for row in data:
 
+#this appends the row containing email addresses [3] in the csv file to the all_email_addresses list
+    all_email_addresses.append(row[3])
+
+#this is the list that acts as the template for the individual email messages.
     text = []
-    text.append('%s\n' % row[5])
-    text.append('March 4, 2014\n\n')
-    text.append('%s:\n\n' % row[1])
+    text.append('%s\n' % row[5]) #org_name
+    text.append('March 11, 2014\n\n')
+    text.append('%s:\n\n' % row[1]) #name of person
     text.append("""Thank you for taking the time to participate in our report on grant maker practices for our 
 annual report on Foundations. You provided us with the following information. Please verify that this 
 is correct.\n\nYou can send updates, including filling in missing information, by replying to this email. 
 Even if no changes are required, please reply to the email letting us know. Please reply no later than COB,
-Friday, March 7th.\n\n""")
+Wednesday, March 12th.\n\n""")
     text.append('Please note, all information for FY13 and FY14 will be presented as estimates to readers.\n\n\n')
 
     # since we have to determine if the 990 exists for everything,
@@ -81,6 +109,8 @@ Friday, March 7th.\n\n""")
     # put the initial string at the end of our list
     text.append('Total assets (fair market value) at end of fiscal year (equivalent to line I on the Form 990-PF):')
     text.append('\n')
+    #this is the first instance of 'u'\u2022' which is unicode for a bullet point.
+    #see at end that joins have to encode on utf-8 for python to read this properly.
     text.append('\t'u'\u2022')
     text.append('FY12 reported: %s' % commas(row[7]))
 
@@ -125,7 +155,6 @@ Friday, March 7th.\n\n""")
 
     if row[i['nomatch_comp']] is not '':
         text.append('\n')
-        text.append('\t'u'\u2022')
         text.append('The FY12 number you reported does not match what\'s in your 990 (%s)' % commas(row[21]))
 
     text.append('\n')
@@ -219,7 +248,9 @@ Friday, March 7th.\n\n""")
 
     ### EST 2014 GIVING
     text.append('Estimated 2014 Giving. Choices included: Increase by 3 percent or more, Decrease by 3 percent or more, Remain the same, Don\'t know:')
-
+    
+    #this is the last point for verification. not a number or currency.
+    #did not set a function; instead established an if statement.
     last_msg = row[41]
 
     if last_msg is '':
@@ -234,7 +265,7 @@ Friday, March 7th.\n\n""")
     text.append('\n')
 
     ### SIGNATURE
-    text.append('Thank you for taking the time to review and verify this information. Please respond no later than March 7th.')
+    text.append('Thank you for taking the time to review and verify this information. Please respond no later than March 12th.')
     text.append('\n')
     text.append('\n')
     text.append('Sarah Frostenson')
@@ -245,9 +276,41 @@ Friday, March 7th.\n\n""")
     text.append('\n')
     text.append('202-466-1201')
 
-    # end of loop, add text file to all_email
-    # this is so we can save all emails and access them later
+    # end of loop, add text list to all_email list
+    # this is so we can save all emails and access them later to send an email.
     all_emails.append(text)
 
+#this is for the print_it function for testing purposes.
+#print_it(all_emails[1])
 
-print_it(all_emails[0])
+#this is the specifications for our function log_in_to_mail_server. plug in appropriate variables.
+server = log_in_to_mail_server('HOSTNAME GOES HERE', 'PORT GOES HERE', 'USERNAME GOES HERE', 'PASSWORD GOES HERE') 
+
+#this uses the zip function to match the list all_emails with the corresponding all_email_addresses. 
+#zip works on matching the content of two lists. and creates email for all_emails and email_address for all_email_addresses.
+#establishes a safety catch if emails fail to send with try and except
+#there is also a series of debugging mechanisms here to determine errors if they arise.
+for email, email_address in zip(all_emails, all_email_addresses):
+    try:
+        #this portion refers back to the send_mail function
+        #it also bccs research with each of the emails sent in the email address list.
+       send_mail(server, 'research@philanthropy.com', [email_address, 'research@philanthropy.com'], '2014 Chronicle of Philanthropy Foundation Report: Verify Key Data Points by March, 12th', ''.join(email).encode('utf-8'))
+    except smtplib.SMTPRecipientsRefused:
+        print 'Recipients refused when sending email to ' + email_address
+    except smtplib.SMTPSenderRefused:
+        print 'Sender refused when sending email to ' + email_address
+    except smtplib.SMTPDataError:
+        print 'Unknown SMTP data error when sending email to ' + email_address
+    except smtplib.SMTPServerDisconnected:
+        print 'Server disconnected when sending email to ' + email_address + '; retrying.'  
+        server = log_in_to_mail_server('HOSTNAME GOES HERE', 'PORT GOES HERE', 'USERNAME GOES HERE', 'PASSWORD GOES HERE')
+        server.connect()
+        send_mail(server, 'research@philanthropy.com', [email_address, 'research@philanthropy.com'], '2014 Chronicle of Philanthropy Foundation Report: Verify Key Data Points by March, 12th', ''.join(email).encode('utf-8'))
+    except Exception:
+        print 'Other unknown error when sending email to ' + email_address
+        import pdb; pdb.set_trace()
+
+# TESTING ONLY--TAKE THIS OUT
+#this sends one email to a specified email with research cc'ed to test formating, etc.
+#send_mail(server, 'research@philanthropy.com', ['sarah.e.frostenson@gmail.com', 'research@philanthropy.com'], '2014 Chronicle of Philanthropy Foundation Report: Verify Key Data Points by March, 12th', ''.join(all_emails[3]).encode('utf8'))
+
